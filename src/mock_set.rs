@@ -22,6 +22,8 @@ pub(crate) struct MountedMockSet {
     /// We need `generation` to know if a [`MockId`] points to an [`MountedMock`] that has been
     /// removed via [`MountedMockSet::reset`].
     generation: u16,
+    /// The number of times we've handled unexpected requests.
+    unexpected_count: u16,
 }
 
 /// A `MockId` is an opaque index that uniquely identifies an [`MountedMock`] inside an [`MountedMockSet`].
@@ -42,6 +44,7 @@ impl MountedMockSet {
         MountedMockSet {
             mocks: vec![],
             generation: 0,
+            unexpected_count: 0,
         }
     }
 
@@ -63,6 +66,7 @@ impl MountedMockSet {
             (response_template.generate_response(), delay)
         } else {
             debug!("Got unexpected request:\n{}", request);
+            self.unexpected_count += 1;
             (Response::new(StatusCode::NotFound), None)
         }
     }
@@ -81,6 +85,7 @@ impl MountedMockSet {
     pub(crate) fn reset(&mut self) {
         self.mocks = vec![];
         self.generation += 1;
+        self.unexpected_count = 0;
     }
 
     /// Mark one of the mocks in the set as out of scope.
@@ -100,7 +105,8 @@ impl MountedMockSet {
             .map(|(m, _)| m.verify())
             .filter(|verification_report| !verification_report.is_satisfied())
             .collect();
-        if failed_verifications.is_empty() {
+
+        if failed_verifications.is_empty() && self.unexpected_count == 0 {
             VerificationOutcome::Success
         } else {
             VerificationOutcome::Failure(failed_verifications)

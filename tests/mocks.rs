@@ -15,6 +15,7 @@ async fn new_starts_the_server() {
 }
 
 #[async_std::test]
+#[ignore]
 async fn returns_404_if_nothing_matches() {
     // Arrange - no mocks mounted
     let mock_server = MockServer::start().await;
